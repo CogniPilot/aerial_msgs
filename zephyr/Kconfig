@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+menuconfig AERIAL_MSGS
+        bool "aerial msgs support"
+        help
+          This option enables aerial msgs
+
+if AERIAL_MSGS
+
+endif
+
