@@ -3,81 +3,42 @@ if (CONFIG_AERIAL_MSGS)
 
 zephyr_library_named(aerial_msgs)
 
-target_compile_definitions(aerial_msgs PUBLIC
-  ROS_PACKAGE_NAME=rolling
-  )
+find_package(Python)
 
-target_compile_options(aerial_msgs PRIVATE -Wno-unused-variable -Wno-implicit-function-declaration -Wno-int-conversion)
 
-zephyr_include_directories(
-  ${ZEPHYR_CURRENT_MODULE_DIR}/rclc/include
-  ${ZEPHYR_CURRENT_MODULE_DIR}/../rosidl/rosidl_runtime_c/include
-  ${ZEPHYR_CURRENT_MODULE_DIR}/../rcutils/include
-  )
+file(GLOB msgs_msg ${ZEPHYR_CURRENT_MODULE_DIR}/msg/*.msg)
 
-zephyr_library_include_directories(
-  ${ZEPHYR_CURRENT_MODULE_DIR}/rclc/include
-  ${ZEPHYR_CURRENT_MODULE_DIR}/../rosidl/rosidl_runtime_c/include
-  ${ZEPHYR_CURRENT_MODULE_DIR}/../rcutils/include
-  )
+set(gen_path ${CMAKE_CURRENT_BINARY_DIR})
+set(msgs_idl)
+set(msgs_h)
 
-file(GLOB_RECURSE Sources
-  "${ZEPHYR_CURRENT_MODULE_DIR}/aerial_msgs/src/*.c"
-)
+foreach(msg_msg ${msgs_msg})
+	message(STATUS "aerial msg: ${msg_msg}")
+	get_filename_component(msg ${msg_msg} NAME_WE)
+	list(APPEND msgs_idl ${gen_path}/${msg}.idl)
+	list(APPEND msgs_h ${gen_path}/${msg}.h)
+endforeach()
 
-#message(STATUS "Sources: ${Sources}")
+message(STATUS "msgs_idl: ${msgs_idl}")
+message(STATUS "msgs_h: ${msgs_h}")
 
-function(add_package package sources)
-  file(GLOB_RECURSE msgs
-    RELATIVE ${ZEPHYR_CURRENT_MODULE_DIR}
-    "${ZEPHYR_CURRENT_MODULE_DIR}/msg/*.msg"
-  )
-  message("msg: ${msgs}")
-  foreach(msg ${msgs})
-    get_filename_component(file ${msg} NAME ABSOLUTE)
-    get_filename_component(dir1 ${msg} DIRECTORY ABSOLUTE)
-    get_filename_component(name ${msg} NAME_WE)
-    cmake_path(GET dir1 PARENT_PATH dir2)
+set(ROSIDL_PATH ${ZEPHYR_CURRENT_MODULE_DIR}/../rosidl)
+set(CYCLONEDDS_PATH ${ZEPHYR_CURRENT_MODULE_DIR}/../cyclonedds)
 
-    # snake case name
-    string(REGEX REPLACE "([A-Z][a-z]+)" "_\\1" snake_case_name "${name}")
-    string(TOLOWER "${snake_case_name}" snake_case_name)
-    string(REGEX REPLACE "_(.*)" "\\1" snake_case_name "${snake_case_name}")
+add_custom_command(
+	OUTPUT msgs_idl
+	COMMAND ${CMAKE_COMMAND}
+	-E env "PYTHONPATH=${ROSIDL_PATH}/rosidl_adapter:${ROSIDL_PATH}/rosidl_cli"
+	${PYTHON_EXECUTABLE}
+	DEPENDS ${msgs_msg})
 
-    message(STATUS "snake_case_name: ${snake_case_name}")
-    message(STATUS "package: ${package}")
-    message(STATUS "name: ${name}")
-    message(STATUS "file: ${file}")
+add_custom_command(
+	OUTPUT msgs_h
+	COMMAND ${CMAKE_COMMAND}
+	-E env "PYTHONPATH=${ROSIDL_PATH}/rosidl_adapter:${ROSIDL_PATH}/rosidl_cli"
+	${PYTHON_EXECUTABLE}
+	DEPENDS ${msgs_idl})
 
-    set(output ${CMAKE_CURRENT_BINARY_DIR}/msg/detail/${snake_case_name}__functions.c)
-    message(STATUS "output: ${output}")
-
-    list(APPEND ${sources} ${output})
-    add_custom_command(
-      OUTPUT ${output}
-      COMMAND rosidl generate -o ${CMAKE_CURRENT_BINARY_DIR} -t c ${package} ${msg}
-      WORKING_DIRECTORY ${ZEPHYR_CURRENT_MODULE_DIR}
-    )
-  endforeach()
-  message(STATUS "sources internal: ${sources}")
-  set(${sources} ${${sources}} PARENT_SCOPE)
-endfunction()
-
-set(sources)
-add_package("aerial_msgs" sources)
-
-message(STATUS "sources: ${sources}")
-
-zephyr_library_sources(
-  ${sources}
-)
-
-include_directories(
-  ${CMAKE_CURRENT_BINARY_DIR}
-)
-
-zephyr_library_include_directories(
-  ${CMAKE_CURRENT_BINARY_DIR}/..
-)
+zephyr_library_sources(${msgs_h})
 
 endif()

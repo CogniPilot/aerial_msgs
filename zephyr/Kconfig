@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 menuconfig AERIAL_MSGS
         bool "aerial msgs support"
+        depends on CYCLONEDDS_CDR=y
         help
           This option enables aerial msgs
 
